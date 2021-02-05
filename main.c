@@ -22,9 +22,13 @@ int main() {
 
     char* hash = final(checksum);
 
+    realloc(hash, 65);
+    hash[64] = '\0';
+    printf(hash);
+
     //printf("end\n");
 
-    print_char_array(hash, 60);
+    //print_char_array(hash, 60);
 
     //if (hash){
         //printf("%s", hash);
