@@ -198,7 +198,7 @@ inline static void update(struct sha1* sha1, const char* str) {
     }
 }
 
-inline static char* final(struct sha1* sha1) {
+inline static void final(struct sha1* sha1, char* result) {
     /* Total number of hashed bits */
     unsigned __int64 total_bits = (sha1->transforms * BLOCK_BYTES + sha1->buff_size) * 8;
     // Padding
@@ -247,7 +247,7 @@ inline static char* final(struct sha1* sha1) {
     //printf("\n\n");
 
     unsigned int hex_count = sizeof(sha1->digest) / sizeof(sha1->digest[0]);
-    char* result = (char*)malloc(hex_count * 8 + 1);
+    //char* result = (char*)malloc(hex_count * 8 + 1);
     result[hex_count * 8] = '\0';
 
     //char* hex = (char*)malloc(8 * sizeof(char));
@@ -271,7 +271,7 @@ inline static char* final(struct sha1* sha1) {
         result[7 + 8 * i] = hex[7];
     }
 
-    return result;
+    //return result;
     //return NULL;
 }
 
