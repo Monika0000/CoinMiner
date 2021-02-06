@@ -21,6 +21,8 @@ inline static void reset(struct sha1* _sha1){
     _sha1->digest[2] = 0x98badcfe;
     _sha1->digest[3] = 0x10325476;
     _sha1->digest[4] = 0xc3d2e1f0;
+    if (_sha1->buffer)
+        free(_sha1->buffer);
     _sha1->buffer = NULL;
     /* Reset counters */
     _sha1->buff_size = 0;
@@ -29,6 +31,7 @@ inline static void reset(struct sha1* _sha1){
 
 inline static struct sha1* newSHA1() {
     struct sha1* _sha1 = (struct sha1*)malloc(sizeof(struct sha1));
+    _sha1->buffer = NULL;
     reset(_sha1);
     return _sha1;
 }
@@ -161,7 +164,8 @@ inline static void update(struct sha1* sha1, const char* str) {
             sha1->buff_size = size - position;
 
             if (sha1->buff_size > 0) {
-                sha1->buffer = (char *) malloc(sizeof(char) * sha1->buff_size);
+                //sha1->buffer = (char *) malloc(sizeof(char) * sha1->buff_size);
+                sha1->buffer = (char *) malloc(sizeof(char) * BLOCK_BYTES);
                 read_string(sha1->buffer, str + position, sha1->buff_size);
             }
 
@@ -195,33 +199,35 @@ inline static void update(struct sha1* sha1, const char* str) {
 }
 
 inline static char* final(struct sha1* sha1) {
-    char* hex = (char*)malloc(8 * sizeof(char));
-
     /* Total number of hashed bits */
-    unsigned __int64 total_bits = (sha1->transforms*BLOCK_BYTES + sha1->buff_size) * 8;
-
+    unsigned __int64 total_bits = (sha1->transforms * BLOCK_BYTES + sha1->buff_size) * 8;
     // Padding
-    unsigned __int32 orig_size = sha1->buff_size;
-    if (sha1->buffer)
-        realloc(sha1->buffer, orig_size + 1);
-    else
-        sha1->buffer = (char*)malloc(1);
-
-    sha1->buffer[orig_size] = (char)0x80;
-
-    //unsigned __int32 delta = (BLOCK_BYTES - orig_size) - 1;
-    for (unsigned __int32 i = orig_size + 1; i < BLOCK_BYTES; i++)
-         sha1->buffer[i] = (char)0x00;
-
-    //append(sha1->buffer, (char)0x00, orig_size + 1, delta);
-
-    /*printf("\n");
-    for (int i = 0; i < 64; i++) {
-        printf("%u", sha1->buffer[i]);
-        printf("\n");
+    unsigned __int32 orig_size = sha1->buff_size; // buff size is <= 63
+    if (sha1->buffer) {
+     //   realloc(sha1->buffer, BLOCK_BYTES); //orig_size + 1
     }
-    printf("\n\n");*/
+    else
+        sha1->buffer = (char *) malloc(BLOCK_BYTES); // 1
 
+    /*{
+        sha1->buff_size++;
+        orig_size++;
+        sha1->buffer[0] = '1';
+    }*/
+
+    sha1->buffer[orig_size] = (char) 0x80;
+    sha1->buff_size++;
+    while (sha1->buff_size < BLOCK_BYTES) {
+        sha1->buffer[sha1->buff_size] = (char) 0x00;
+        sha1->buff_size++;
+    }
+
+    //printf("\n");
+    //for (int i = 0; i < 64; i++) {
+    ///    printf("%u", sha1->buffer[i]);
+    //    printf("\n");
+    //}
+    //printf("\n\n");
     unsigned __int32 block[BLOCK_INTS];
     buffer_to_block(sha1->buffer, block);
 
@@ -231,7 +237,7 @@ inline static char* final(struct sha1* sha1) {
             block[i] = 0;
     }
 
-    /* Append total_bits, split this uint64_t into two uint32_t */
+    // Append total_bits, split this uint64_t into two uint32_t
     block[BLOCK_INTS - 1] = (unsigned __int32)total_bits;
     block[BLOCK_INTS - 2] = (unsigned __int32)(total_bits >> 32);
     transform(sha1, block);
@@ -241,7 +247,11 @@ inline static char* final(struct sha1* sha1) {
     //printf("\n\n");
 
     unsigned int hex_count = sizeof(sha1->digest) / sizeof(sha1->digest[0]);
-    char* result = (char*)malloc(hex_count * 8);
+    char* result = (char*)malloc(hex_count * 8 + 1);
+    result[hex_count * 8] = '\0';
+
+    //char* hex = (char*)malloc(8 * sizeof(char));
+    char hex[8];
 
     for (int i = 0; i < hex_count; i++) {
         to_hex(hex, sha1->digest[i]);
@@ -262,6 +272,7 @@ inline static char* final(struct sha1* sha1) {
     }
 
     return result;
+    //return NULL;
 }
 
 #endif //COINMINER_SHA1_H
