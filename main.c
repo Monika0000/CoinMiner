@@ -75,11 +75,14 @@ unsigned int process_job(SOCKET sock, struct sha1* sha1, struct sha1* sha1_copy)
     unsigned short id = 0;
     char* prefix = read_to(buffer, ',', &id);
     char* job = read_to(buffer + id, ',', &id);
-    unsigned int diff = (unsigned int)atoi(buffer + id);
+    int diff = atoi(buffer + id);
 
-    //printf("%s\n", prefix);
-    //printf("%s\n", job);
-    //printf("%i\n", diff);
+    static _Bool is_print_diff = 0;
+
+    if (!is_print_diff) {
+        printf("Current difficulty: %i\n", diff);
+        is_print_diff = 1;
+    }
 
     char iter_hash [32];
     char final_hash[65];
@@ -116,6 +119,11 @@ void send_job(SOCKET sock, unsigned int job) {
         printf("send_job(): recv version failed\n");
     }
     printf("%s - %s\n", job_result, server_reply);
+
+    server_reply[0] = '\0';
+    server_reply[1] = '\0';
+    server_reply[2] = '\0';
+    server_reply[3] = '\0';
 }
 
 void test_speed(){
@@ -146,6 +154,7 @@ int main() {
     curl_global_init(CURL_GLOBAL_ALL); //CURL_GLOBAL_ALL CURL_GLOBAL_DEFAULT
 
     if (!check_sha1() || !check_sha1_2() || !check_sha1_3() || !check_sha1_4()) {
+    //if (!check_sha1_4()) {
         printf("SHA1 is not working!\n");
         return -1;
     } else
@@ -162,7 +171,7 @@ int main() {
     struct sha1* sha1 = newSHA1();
 
     struct sha1* sha1_copy = newSHA1();
-    sha1_copy->buffer = (char*)malloc(BLOCK_BYTES + 1);
+    //sha1_copy->buffer = (char*)malloc(BLOCK_BYTES + 1);
     sha1_copy->buffer[BLOCK_BYTES] = '\0';
 
     int result = 0;
@@ -173,8 +182,8 @@ int main() {
 
             result = process_job(sock, sha1, sha1_copy);
 
-            printf("Time: %ld\n",
-                   (clock() - _time) / 1000);
+            printf("Time: %f\n",
+                    (double)(clock() - _time) / 1000.0);
 
             if (result != 0) {
                 send_job(sock, result);

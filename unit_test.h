@@ -23,7 +23,7 @@ inline static _Bool check_sha1() {
 
     final(_sha1, hash);
 
-    //printf("%s\n", hash);
+    printf("Unit test 1: %s\n", hash);
 
     if (!string_compare(hash, checksum))
         return 0;
@@ -39,7 +39,6 @@ inline static _Bool check_sha1() {
 inline static _Bool check_sha1_2() {
     struct sha1* _sha1 = newSHA1();
     const char* checksum = "167c15c0c50d0e99bc44a5f5e85408acfc7cf9d3\0";
-    //const char* checksum = "da39a3ee5e6b4b0d3255bfef95601890afd80709\0";
 
     const char* input = "[11111111111111111111111111111111111111111111111111111111111111][11111111111111111111111111111111111111111111111111111111111111]\0";
 
@@ -48,7 +47,7 @@ inline static _Bool check_sha1_2() {
 
     final(_sha1, hash);
 
-    //printf("Unit test 2: %s\n", hash);
+    printf("Unit test 2: %s\n", hash);
 
     if (!string_compare(hash, checksum))
         return 0;
@@ -72,7 +71,7 @@ inline static _Bool check_sha1_3() {
 
     final(_sha1, hash);
 
-    //printf("%s\n", hash);
+    printf("Unit test 3: %s\n", hash);
 
     if (!string_compare(hash, checksum))
         return 0;
@@ -94,7 +93,7 @@ inline static _Bool check_sha1_4() {
 
     final(_sha1, hash);
 
-    //printf("Unit test 4: %s\n", hash);
+    printf("Unit test 4: %s\n", hash);
 
     if (!string_compare(hash, checksum))
         return 0;

@@ -11,8 +11,11 @@
 struct sha1 {
     unsigned __int32 digest[5];
     char* buffer;
+    //char buffer[BLOCK_BYTES + 1];
     unsigned __int64 transforms;
     unsigned __int32 buff_size;
+
+    unsigned __int32* block; // non copy
 };
 
 inline static void reset(struct sha1* _sha1){
@@ -21,9 +24,10 @@ inline static void reset(struct sha1* _sha1){
     _sha1->digest[2] = 0x98badcfe;
     _sha1->digest[3] = 0x10325476;
     _sha1->digest[4] = 0xc3d2e1f0;
-    if (_sha1->buffer)
-        free(_sha1->buffer);
-    _sha1->buffer = NULL;
+    //if (_sha1->buffer)
+    //    free(_sha1->buffer);
+    //_sha1->buffer = NULL;
+    _sha1->buffer[0] = '\0';
     /* Reset counters */
     _sha1->buff_size = 0;
     _sha1->transforms = 0;
@@ -31,20 +35,45 @@ inline static void reset(struct sha1* _sha1){
 
 inline static struct sha1* newSHA1() {
     struct sha1* _sha1 = (struct sha1*)malloc(sizeof(struct sha1));
-    _sha1->buffer = NULL;
+    //_sha1->buffer = NULL;
+    _sha1->buffer = (char*)malloc(BLOCK_BYTES + 1);
+    _sha1->block = (unsigned __int32*)malloc(BLOCK_BYTES);
+    //_sha1->buffer[0] = '\0';
     reset(_sha1);
     return _sha1;
 }
 
-char * string_copy( const char *from, char *to ) {
+void string_copy( const char *from, char *to ) {
     for ( char *p = to; ( *p = *from ) != '\0'; ++p, ++from)
     {
         ;
     }
 }
 
+inline static void copy_buffer(const char* from, char* to){
+    to[0]  = from[0];   to[16] = from[16];      to[32] = from[32];   to[48] = from[48];
+    to[1]  = from[1];   to[17] = from[17];      to[33] = from[33];   to[49] = from[49];
+    to[2]  = from[2];   to[18] = from[18];      to[34] = from[34];   to[50] = from[50];
+    to[3]  = from[3];   to[19] = from[19];      to[35] = from[35];   to[51] = from[51];
+
+    to[4]  = from[4];   to[20] = from[20];      to[36] = from[36];   to[52] = from[52];
+    to[5]  = from[5];   to[21] = from[21];      to[37] = from[37];   to[53] = from[53];
+    to[6]  = from[6];   to[22] = from[22];      to[38] = from[38];   to[54] = from[54];
+    to[7]  = from[7];   to[23] = from[23];      to[39] = from[39];   to[55] = from[55];
+
+    to[8]  = from[8];   to[24] = from[24];      to[40] = from[40];   to[56] = from[56];
+    to[9]  = from[9];   to[25] = from[25];      to[41] = from[41];   to[57] = from[57];
+    to[10] = from[10];  to[26] = from[26];      to[42] = from[42];   to[58] = from[58];
+    to[11] = from[11];  to[27] = from[27];      to[43] = from[43];   to[59] = from[59];
+
+    to[12] = from[12];  to[28] = from[28];      to[44] = from[44];   to[60] = from[60];
+    to[13] = from[13];  to[29] = from[29];      to[45] = from[45];   to[61] = from[61];
+    to[14] = from[14];  to[30] = from[30];      to[46] = from[46];   to[62] = from[62];
+    to[15] = from[15];  to[31] = from[31];      to[47] = from[47];   to[63] = from[63];
+}
+
 inline static void copySHA1(struct sha1* from, struct sha1* to) {
-    string_copy(from->buffer, to->buffer);
+    copy_buffer(from->buffer, to->buffer);
     to->buff_size = from->buff_size;
     to->digest[0] = from->digest[0];
     to->digest[1] = from->digest[1];
@@ -54,7 +83,8 @@ inline static void copySHA1(struct sha1* from, struct sha1* to) {
     to->transforms = from->transforms;
 }
 
-inline static void transform(struct sha1* sha1, unsigned __int32 block[BLOCK_INTS]){
+//inline static void transform(struct sha1* sha1, unsigned __int32 block[BLOCK_INTS]){
+inline static void transform(struct sha1* sha1, unsigned __int32* block){
     /* Copy digest[] to working vars */
     unsigned __int32 a = sha1->digest[0];
     unsigned __int32 b = sha1->digest[1];
@@ -151,12 +181,6 @@ inline static void transform(struct sha1* sha1, unsigned __int32 block[BLOCK_INT
     sha1->digest[3] += d;
     sha1->digest[4] += e;
 
-    //for (int i = 0; i < 5; i++) {
-    //    printf("%i", sha1->digest[i]);
-   //     printf("\n");
-   // }
-   // printf("\n");
-//
     /* Count the number of transformations */
     sha1->transforms++;
 }
@@ -175,7 +199,6 @@ inline static void update(struct sha1* sha1, const char* str) {
     unsigned short position = 0;
     unsigned short size = fast_strlen(str);
     unsigned char count = 0;
-    //printf("%llu", size); printf("\n");
 
     while (1) {
         if (size - position > BLOCK_BYTES){
@@ -183,8 +206,9 @@ inline static void update(struct sha1* sha1, const char* str) {
         } else
             count = size - position;
 
-        if (!sha1->buffer) {
-            sha1->buffer = (char *) malloc(sizeof(char) * BLOCK_BYTES + 1);
+        //if (!sha1->buffer) {
+        if (sha1->buffer[0] == '\0') {
+            //sha1->buffer = (char *) malloc(sizeof(char) * BLOCK_BYTES + 1);
             sha1->buff_size = count;
             read_string(sha1->buffer, str + position, count);
             sha1->buffer[count] = '\0';
@@ -196,6 +220,8 @@ inline static void update(struct sha1* sha1, const char* str) {
             position += count;
         }
 
+        //printf("%s\n", sha1->buffer);
+
         if (sha1->buff_size != BLOCK_BYTES)
             return;
 
@@ -203,15 +229,10 @@ inline static void update(struct sha1* sha1, const char* str) {
         buffer_to_block(sha1->buffer, block);
         transform(sha1, block);
 
-        //for (int i = 0; i < 5; i++)
-        //       printf("%u", sha1->digest[i]);
-        //printf("\n\n");
+        //free(sha1->buffer);
 
-        //realloc(sha1->buffer, BLOCK_BYTES + 1);
-        //sha1->buffer[BLOCK_BYTES] = '\0';
-        free(sha1->buffer);
-
-        sha1->buffer = NULL;
+        //sha1->buffer = NULL;
+        sha1->buffer[0] = '\0';
         sha1->buff_size = 0;
     }
 }
@@ -221,8 +242,6 @@ inline static void final(struct sha1* sha1, char* result) {
     unsigned __int64 total_bits = (sha1->transforms * BLOCK_BYTES + sha1->buff_size) * 8;
     // Padding
     unsigned __int32 orig_size = sha1->buff_size; // buff size is <= 63
-    if (!sha1->buffer)
-        sha1->buffer = (char *) malloc(BLOCK_BYTES); // 1
     sha1->buffer[orig_size] = (char) 0x80;
     sha1->buff_size++;
     while (sha1->buff_size < BLOCK_BYTES) {
@@ -230,27 +249,33 @@ inline static void final(struct sha1* sha1, char* result) {
         sha1->buff_size++;
     }
 
-    unsigned __int32 block[BLOCK_INTS];
-    buffer_to_block(sha1->buffer, block);
+    buffer_to_block(sha1->buffer, sha1->block);
 
     if (orig_size > BLOCK_BYTES - 8) {
-        transform(sha1, block);
+        transform(sha1, sha1->block);
         for (size_t i = 0; i < BLOCK_INTS - 2; i++)
-            block[i] = 0;
+            sha1->block[i] = 0;
     }
 
     // Append total_bits, split this uint64_t into two uint32_t
-    block[BLOCK_INTS - 1] = (unsigned __int32)total_bits;
-    block[BLOCK_INTS - 2] = (unsigned __int32)(total_bits >> 32);
-    transform(sha1, block);
+    sha1->block[BLOCK_INTS - 1] = (unsigned __int32)total_bits;
+    sha1->block[BLOCK_INTS - 2] = (unsigned __int32)(total_bits >> 32);
+    //transform(sha1, block);
+    transform(sha1, sha1->block);
 
-    unsigned int hex_count = sizeof(sha1->digest) / sizeof(sha1->digest[0]);
-    result[hex_count * 8] = '\0';
+    //unsigned int hex_count = sizeof(sha1->digest) / sizeof(sha1->digest[0]);
+    result[5 * 8] = '\0';
+
+    //if (hex_count != 5)
+    //    printf("%u", hex_count);
 
     char hex[8];
 
-    for (int i = 0; i < hex_count; i++) {
-        to_hex(hex, sha1->digest[i]);
+    //for (int i = 0; i < hex_count; i++) {
+    for (int i = 0; i < 5; i++) {
+        //to_hex(hex, sha1->digest[i]);
+        //UlongToHexString((unsigned __int64)sha1->digest[i], hex);
+        lutHexString(sha1->digest[i], hex);
 
         result[0 + 8 * i] = hex[0];
         result[1 + 8 * i] = hex[1];
