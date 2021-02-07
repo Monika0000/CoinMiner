@@ -64,44 +64,58 @@ SOCKET connect_to_server(char* ip, unsigned short port) {
     return s;
 }
 
-void process_job(SOCKET sock, struct sha1* sha1, struct sha1* sha1_copy) {
+unsigned int process_job(SOCKET sock, struct sha1* sha1, struct sha1* sha1_copy) {
     char buffer[100];
     int size = recv(sock, buffer, 100, 0);
     buffer[size] = '\0';
+
+    if (buffer[0] == 'B' && buffer[1] == 'A' && buffer[2] == 'D' && buffer[3] == '\0')
+        return 0;
 
     unsigned short id = 0;
     char* prefix = read_to(buffer, ',', &id);
     char* job = read_to(buffer + id, ',', &id);
     unsigned int diff = (unsigned int)atoi(buffer + id);
 
-    printf("%s\n", prefix);
-    printf("%s\n", job);
-    printf("%i\n", diff);
+    //printf("%s\n", prefix);
+    //printf("%s\n", job);
+    //printf("%i\n", diff);
 
     char iter_hash [32];
     char final_hash[65];
 
-    //update(sha1, prefix);
+    update(sha1, prefix);
     for (unsigned int i = 0; i < diff * 100; i++) {
-        //update(sha1, prefix);
+        copySHA1(sha1, sha1_copy);
 
         itoa((int)i, iter_hash, 10);
-        char buffer[100];
-        strcpy(buffer, prefix);
-        strcat(buffer, iter_hash);
 
-        update(sha1, buffer);
-        final(sha1, final_hash);
+        update(sha1_copy, iter_hash);
 
-        //if (string_compare(job, final_hash)){
-        if (strcmp(job, final_hash) == 0) {
-            printf("%s\n", final_hash);
-            printf("%i\n", i);
-            break;
+        final(sha1_copy, final_hash);
+
+        if (strncmp(job, final_hash, 8) == 0) {
+            free(job);
+            free(prefix);
+            return i;
         }
-
-        reset(sha1);
     }
+}
+
+void send_job(SOCKET sock, unsigned int job) {
+    char job_result [64];
+    itoa(job, job_result, 10);
+    strcat(job_result, ",,CoinMiner");
+
+    if(send(sock, job_result, fast_strlen(job_result), 0) < 0) {
+        printf("send_job() : failed\n");
+    }
+
+    char server_reply [5];
+    if((recv(sock , server_reply , 5 , 0)) == SOCKET_ERROR) {
+        printf("send_job(): recv version failed\n");
+    }
+    printf("%s - %s\n", job_result, server_reply);
 }
 
 void test_speed(){
@@ -124,10 +138,14 @@ void test_speed(){
     printf("%u", i);
 }
 
+void run_miner() {
+
+}
+
 int main() {
     curl_global_init(CURL_GLOBAL_ALL); //CURL_GLOBAL_ALL CURL_GLOBAL_DEFAULT
 
-    if (!check_sha1() || !check_sha1_2() || !check_sha1_3()) {
+    if (!check_sha1() || !check_sha1_2() || !check_sha1_3() || !check_sha1_4()) {
         printf("SHA1 is not working!\n");
         return -1;
     } else
@@ -147,11 +165,22 @@ int main() {
     sha1_copy->buffer = (char*)malloc(BLOCK_BYTES + 1);
     sha1_copy->buffer[BLOCK_BYTES] = '\0';
 
-    //while(1)
+    int result = 0;
+
+    while(1)
         if (request_job(sock)) {
-            process_job(sock, sha1, sha1_copy);
+            clock_t _time = clock();
+
+            result = process_job(sock, sha1, sha1_copy);
+
+            printf("Time: %ld\n",
+                   (clock() - _time) / 1000);
+
+            if (result != 0) {
+                send_job(sock, result);
+            } else
+                break;
             reset(sha1);
-            return 0;
         }
 
     return -1;
