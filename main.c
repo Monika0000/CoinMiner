@@ -8,6 +8,7 @@
 #pragma comment(lib,"Ws2_32.lib")
 
 #include <string.h>
+#include <windows.h>  //Для sleep
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -21,7 +22,7 @@ _Bool request_job(SOCKET sock) {
 }
 
 SOCKET connect_to_server(char* ip, unsigned short port) {
-    printf("%s", ip); printf(":"); printf("%hu", port); printf("\n");
+    printf("connect_to_server(): connecting to %s:%hu...\n", ip, port);
 
     WSADATA wsa;
     SOCKET s;
@@ -49,7 +50,7 @@ SOCKET connect_to_server(char* ip, unsigned short port) {
         return 0;
     }
 
-    printf("connect_to_server(): successfully connection!\n");
+    printf("connect_to_server(): connected successfully!\n");
 
     //Receive a reply from the server
     if((recv(s , server_reply , 3 , 0)) == SOCKET_ERROR) {
@@ -146,8 +147,40 @@ void test_speed(){
     printf("%u", i);
 }
 
-void run_miner() {
+DWORD WINAPI run_miner() {
+    char *ip = NULL;
+    unsigned short port = 0;
+    get_address("https://raw.githubusercontent.com/revoxhere/duino-coin/gh-pages/serverip.txt", &ip, &port);
 
+    SOCKET sock = connect_to_server(ip, port);
+    if (sock == INVALID_SOCKET)
+        return 0;
+
+    struct sha1* sha1 = newSHA1();
+
+    struct sha1* sha1_copy = newSHA1();
+    sha1_copy->buffer[BLOCK_BYTES] = '\0';
+
+    int result = 0;
+
+    while(1)
+        if (request_job(sock)) {
+            Sleep(1000);
+
+            //clock_t _time = clock();
+
+            result = process_job(sock, sha1, sha1_copy);
+
+            //printf("Time: %f\n",
+            //       (double)(clock() - _time) / 1000.0);
+
+            if (result != 0) {
+                send_job(sock, result);
+            } else
+                break;
+            reset(sha1);
+        }
+    return 0;
 }
 
 int main() {
@@ -160,39 +193,13 @@ int main() {
     } else
         printf("Checking SHA1 is successful\n");
 
-    char *ip = NULL;
-    unsigned short port = 0;
-    get_address("https://raw.githubusercontent.com/revoxhere/duino-coin/gh-pages/serverip.txt", &ip, &port);
+    for (unsigned char c = 0; c < 16; c++) {
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+    }
 
-    SOCKET sock = connect_to_server(ip, port);
-    if (sock == INVALID_SOCKET)
-        return -1;
+    getchar();
 
-    struct sha1* sha1 = newSHA1();
-
-    struct sha1* sha1_copy = newSHA1();
-    //sha1_copy->buffer = (char*)malloc(BLOCK_BYTES + 1);
-    sha1_copy->buffer[BLOCK_BYTES] = '\0';
-
-    int result = 0;
-
-    while(1)
-        if (request_job(sock)) {
-            clock_t _time = clock();
-
-            result = process_job(sock, sha1, sha1_copy);
-
-            printf("Time: %f\n",
-                    (double)(clock() - _time) / 1000.0);
-
-            if (result != 0) {
-                send_job(sock, result);
-            } else
-                break;
-            reset(sha1);
-        }
-
-    return -1;
+    return 0;
 
 
     /*const char* input = "[11111111111111111111111111111111111111111111111111111111111111]\0";
