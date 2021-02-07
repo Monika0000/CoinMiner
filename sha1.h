@@ -36,6 +36,24 @@ inline static struct sha1* newSHA1() {
     return _sha1;
 }
 
+char * string_copy( const char *from, char *to ) {
+    for ( char *p = to; ( *p = *from ) != '\0'; ++p, ++from)
+    {
+        ;
+    }
+}
+
+inline static void copySHA1(struct sha1* from, struct sha1* to) {
+    string_copy(from->buffer, to->buffer);
+    to->buff_size = from->buff_size;
+    to->digest[0] = from->digest[0];
+    to->digest[1] = from->digest[1];
+    to->digest[2] = from->digest[2];
+    to->digest[3] = from->digest[3];
+    to->digest[4] = from->digest[4];
+    to->transforms = from->transforms;
+}
+
 inline static void transform(struct sha1* sha1, unsigned __int32 block[BLOCK_INTS]){
     /* Copy digest[] to working vars */
     unsigned __int32 a = sha1->digest[0];
@@ -154,14 +172,14 @@ inline static void buffer_to_block(const char* buffer, unsigned __int32 block[BL
 }
 
 inline static void update(struct sha1* sha1, const char* str) {
-    unsigned __int64 position = 0;
-    unsigned __int64 size = fast_strlen(str);
+    unsigned short position = 0;
+    unsigned short size = fast_strlen(str);
 
     //printf("%llu", size); printf("\n");
 
     while (1) {
         if (position + BLOCK_BYTES > size) {
-            sha1->buff_size = size - position;
+            sha1->buff_size = (unsigned __int32)(size - position);
 
             if (sha1->buff_size > 0) {
                 //sha1->buffer = (char *) malloc(sizeof(char) * sha1->buff_size);
