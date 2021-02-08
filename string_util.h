@@ -12,6 +12,7 @@ inline static void print_char_array(const char* str, unsigned __int32 count) {
         str++;
         count--;
     }
+
 }
 
 inline char to16(unsigned char number) {
@@ -56,6 +57,63 @@ inline static short fast_strlen(const char* str) {
         str++;
     }
     return size;
+}
+
+inline static char* make_req(const char* name, const char* diff) {
+    unsigned char size1 = fast_strlen(name);
+
+    if (diff) {
+        unsigned char size2 = fast_strlen(diff);
+        unsigned char size_final = 5 + size1 + 1 + size2;
+
+        char *req = (char *) malloc(size_final);
+        req[size_final - 1] = '\0';
+
+        req[0] = 'J';
+        req[1] = 'O';
+        req[2] = 'B';
+        req[3] = ',';
+
+        unsigned char pos = 4;
+
+        while (*name) {
+            req[pos] = *name;
+            name++;
+            pos++;
+        }
+
+        req[pos] = ',';
+        pos++;
+
+        while (*diff) {
+            req[pos] = *diff;
+            diff++;
+            pos++;
+        }
+
+        return req;
+    }
+    else {
+        unsigned char size_final = 5 + size1;
+        char *req = (char *) malloc(size_final);
+        req[size_final - 1] = '\0';
+
+        req[0] = 'J';
+        req[1] = 'O';
+        req[2] = 'B';
+        req[3] = ',';
+
+
+        unsigned char pos = 4;
+
+        while (*name) {
+            req[pos] = *name;
+            name++;
+            pos++;
+        }
+
+        return req;
+    }
 }
 
 inline static _Bool string_compare(const char* str1, const char* str2) {

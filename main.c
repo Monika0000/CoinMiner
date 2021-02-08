@@ -13,12 +13,37 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+static const unsigned char max_threads_count = 49;
+static unsigned char normal_threads_count = 0;
+static unsigned char medium_threads_count = 0;
+static unsigned char esp_threads_count = 0;
+static unsigned char avr_threads_count = 0;
+
+static int request_diff = -1;
+
 _Bool request_job(SOCKET sock) {
-    const char* req = "JOB,Monika";
+    //const char*
+
+    char* req = NULL;
+    switch (request_diff) {
+        case 0: req = make_req("Monika\0", "AVR\0"); break;
+        case 1: req = make_req("Monika\0", "ESP\0"); break;
+        case 2: req = make_req("Monika\0", "MEDIUM\0"); break;
+        case 3: req = make_req("Monika\0", NULL); break;
+        default:
+            printf("Unknown diff!");
+            return 0;
+    }
+
+    //printf("%s\n", req);
+
     if(send(sock, req, fast_strlen(req), 0) < 0) {
         printf("request_job() : failed\n");
         return 0;
-    } else return 1;
+    } else {
+        free(req);
+        return 1;
+    }
 }
 
 SOCKET connect_to_server(char* ip, unsigned short port) {
@@ -68,6 +93,11 @@ SOCKET connect_to_server(char* ip, unsigned short port) {
 unsigned int process_job(SOCKET sock, struct sha1* sha1, struct sha1* sha1_copy) {
     char buffer[100];
     int size = recv(sock, buffer, 100, 0);
+    if (size == 0) {
+        printf("process_job(): server return zero bytes!\n");
+        return 0;
+    }
+
     buffer[size] = '\0';
 
     if (buffer[0] == 'B' && buffer[1] == 'A' && buffer[2] == 'D' && buffer[3] == '\0')
@@ -78,12 +108,12 @@ unsigned int process_job(SOCKET sock, struct sha1* sha1, struct sha1* sha1_copy)
     char* job = read_to(buffer + id, ',', &id);
     int diff = atoi(buffer + id);
 
-    static _Bool is_print_diff = 0;
+    static unsigned int diff_counter = 0;
 
-    if (!is_print_diff) {
+    if (diff_counter >= 20) {
         printf("Current difficulty: %i\n", diff);
-        is_print_diff = 1;
-    }
+        diff_counter = 0;
+    } else diff_counter++;
 
     char iter_hash [32];
     char final_hash[65];
@@ -125,6 +155,7 @@ void send_job(SOCKET sock, unsigned int job) {
     server_reply[1] = '\0';
     server_reply[2] = '\0';
     server_reply[3] = '\0';
+    server_reply[4] = '\0';
 }
 
 void test_speed(){
@@ -148,6 +179,7 @@ void test_speed(){
 }
 
 DWORD WINAPI run_miner() {
+    Sleep(100);
     char *ip = NULL;
     unsigned short port = 0;
     get_address("https://raw.githubusercontent.com/revoxhere/duino-coin/gh-pages/serverip.txt", &ip, &port);
@@ -165,7 +197,7 @@ DWORD WINAPI run_miner() {
 
     while(1)
         if (request_job(sock)) {
-            Sleep(1000);
+            //Sleep(1000);
 
             //clock_t _time = clock();
 
@@ -177,23 +209,78 @@ DWORD WINAPI run_miner() {
             if (result != 0) {
                 send_job(sock, result);
             } else
-                break;
+                return 0;
             reset(sha1);
         }
     return 0;
 }
 
-int main() {
+_Bool parse_args(int argc, char **argv){
+    for (unsigned char i = 1; i < (unsigned char)argc; i += 2){
+        if (strcmp(argv[i], "--NORMAL") == 0) {
+            normal_threads_count = (unsigned char)atoi(argv[i + 1]);
+            printf("Normal threads: %i\n", normal_threads_count);
+        }
+        else if (strcmp(argv[i], "--MEDIUM") == 0) {
+            medium_threads_count = (unsigned char)atoi(argv[i + 1]);
+            printf("Medium threads: %i\n", medium_threads_count);
+        }
+        else if (strcmp(argv[i], "--ESP") == 0) {
+            esp_threads_count = (unsigned char)atoi(argv[i + 1]);
+            printf("ESP threads: %i\n", esp_threads_count);
+        }
+        else if (strcmp(argv[i], "--AVR") == 0) {
+            avr_threads_count = (unsigned char)atoi(argv[i + 1]);
+            printf("AVR threads: %i\n", avr_threads_count);
+        }
+    }
+
+    unsigned char count = normal_threads_count +
+                          medium_threads_count +
+                          esp_threads_count +
+                          avr_threads_count;
+
+    if (count > max_threads_count) {
+        printf("parse_args(): too many threads! You need no more than 49\n");
+        return 0;
+    }
+
+    if (count == 0) {
+        //normal_threads_count = 8;
+        //count = 1;
+    }
+
+    printf("parse_args(): you have a %i threads\n", count);
+
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    if (!parse_args(argc, argv))
+        return -1;
+
     curl_global_init(CURL_GLOBAL_ALL); //CURL_GLOBAL_ALL CURL_GLOBAL_DEFAULT
 
     if (!check_sha1() || !check_sha1_2() || !check_sha1_3() || !check_sha1_4()) {
-    //if (!check_sha1_4()) {
         printf("SHA1 is not working!\n");
         return -1;
     } else
         printf("Checking SHA1 is successful\n");
 
-    for (unsigned char c = 0; c < 16; c++) {
+    for (unsigned char c = 0; c < avr_threads_count; c++) { // AVM
+        request_diff = 0;
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+    }
+    for (unsigned char c = 0; c < esp_threads_count; c++) { // ESP
+        request_diff = 1;
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+    }
+    for (unsigned char c = 0; c < medium_threads_count; c++) { // MEDIUM
+        request_diff = 2;
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+    }
+    for (unsigned char c = 0; c < normal_threads_count; c++) { // NORMAL
+        request_diff = 3;
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
     }
 
