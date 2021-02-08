@@ -19,6 +19,8 @@ static unsigned char medium_threads_count = 0;
 static unsigned char esp_threads_count = 0;
 static unsigned char avr_threads_count = 0;
 
+static char* username = NULL;
+
 static int request_diff = -1;
 
 _Bool request_job(SOCKET sock) {
@@ -26,10 +28,10 @@ _Bool request_job(SOCKET sock) {
 
     char* req = NULL;
     switch (request_diff) {
-        case 0: req = make_req("Monika\0", "AVR\0"); break;
-        case 1: req = make_req("Monika\0", "ESP\0"); break;
-        case 2: req = make_req("Monika\0", "MEDIUM\0"); break;
-        case 3: req = make_req("Monika\0", NULL); break;
+        case 0: req = make_req(username, "AVR\0"); break;
+        case 1: req = make_req(username, "ESP\0"); break;
+        case 2: req = make_req(username, "MEDIUM\0"); break;
+        case 3: req = make_req(username, NULL); break;
         default:
             printf("Unknown diff!");
             return 0;
@@ -233,6 +235,10 @@ _Bool parse_args(int argc, char **argv){
             avr_threads_count = (unsigned char)atoi(argv[i + 1]);
             printf("AVR threads: %i\n", avr_threads_count);
         }
+        else if (strcmp(argv[i], "--USER") == 0) {
+            username = argv[i + 1];
+            printf("User: %s\n", username);
+        }
     }
 
     unsigned char count = normal_threads_count +
@@ -242,6 +248,11 @@ _Bool parse_args(int argc, char **argv){
 
     if (count > max_threads_count) {
         printf("parse_args(): too many threads! You need no more than 49\n");
+        return 0;
+    }
+
+    if (!username) {
+        printf("parse_args(): enter user name!\n");
         return 0;
     }
 
