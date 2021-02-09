@@ -23,11 +23,11 @@ static char* username = NULL;
 
 static int request_diff = -1;
 
-_Bool request_job(SOCKET sock) {
+_Bool request_job(SOCKET sock, unsigned char diff) {
     //const char*
 
     char* req = NULL;
-    switch (request_diff) {
+    switch (diff) {
         case 0: req = make_req(username, "AVR\0"); break;
         case 1: req = make_req(username, "ESP\0"); break;
         case 2: req = make_req(username, "MEDIUM\0"); break;
@@ -181,6 +181,8 @@ void test_speed(){
 }
 
 DWORD WINAPI run_miner() {
+    unsigned char diff = request_diff;
+
     Sleep(100);
     char *ip = NULL;
     unsigned short port = 0;
@@ -198,7 +200,7 @@ DWORD WINAPI run_miner() {
     int result = 0;
 
     while(1)
-        if (request_job(sock)) {
+        if (request_job(sock, diff)) {
             //Sleep(1000);
 
             //clock_t _time = clock();
@@ -281,18 +283,22 @@ int main(int argc, char **argv) {
     for (unsigned char c = 0; c < avr_threads_count; c++) { // AVM
         request_diff = 0;
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+        Sleep(10);
     }
     for (unsigned char c = 0; c < esp_threads_count; c++) { // ESP
         request_diff = 1;
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+        Sleep(10);
     }
     for (unsigned char c = 0; c < medium_threads_count; c++) { // MEDIUM
         request_diff = 2;
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+        Sleep(10);
     }
     for (unsigned char c = 0; c < normal_threads_count; c++) { // NORMAL
         request_diff = 3;
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &run_miner, NULL, 0, NULL);
+        Sleep(10);
     }
 
     getchar();
